@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isOwner() { return signedIn() && request.auth.uid == "dDUHublQoTccwtzPa1hmpyiDTd23"; }
+
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isOwner());
+      allow list: if isOwner();
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid','firstName','lastName','courierId','deviceId','activationKeyId','status','role','createdAt','updatedAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.role == 'USER'
+        && request.resource.data.status == 'ACTIVE'
+        && request.resource.data.firstName is string
+        && request.resource.data.lastName is string
+        && request.resource.data.courierId is string
+        && request.resource.data.deviceId is string
+        && request.resource.data.activationKeyId is string
+        && !exists(/databases/$(database)/documents/blacklist/$(request.resource.data.deviceId))
+        && getAfter(/databases/$(database)/documents/activation_keys/$(request.resource.data.activationKeyId)).data.status == 'USED'
+        && getAfter(/databases/$(database)/documents/activation_keys/$(request.resource.data.activationKeyId)).data.userId == uid
+        && getAfter(/databases/$(database)/documents/activation_keys/$(request.resource.data.activationKeyId)).data.deviceId == request.resource.data.deviceId
+        && getAfter(/databases/$(database)/documents/devices/$(request.resource.data.deviceId)).data.uid == uid;
+      allow update, delete: if isOwner();
+    }
+
+    match /devices/{deviceId} {
+      allow get: if signedIn() && (resource.data.uid == request.auth.uid || isOwner());
+      allow list: if isOwner();
+      allow create: if signedIn() && !isOwner()
+        && request.resource.data.keys().hasOnly(['uid','deviceId','platform','manufacturer','model','androidVersion','appVersion','status','createdAt','lastSeenAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.deviceId == deviceId
+        && request.resource.data.platform == 'ANDROID'
+        && request.resource.data.status == 'ACTIVE'
+        && !exists(/databases/$(database)/documents/blacklist/$(deviceId))
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.deviceId == deviceId;
+      allow update, delete: if isOwner();
+    }
+
+    match /activation_keys/{keyId} {
+      allow get: if signedIn();
+      allow list: if isOwner();
+      allow create: if isOwner();
+      allow update: if signedIn() && !isOwner()
+        && resource.data.status == 'UNUSED'
+        && request.resource.data.status == 'USED'
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.deviceId is string
+        && request.resource.data.activatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','userId','deviceId','activatedAt'])
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.activationKeyId == keyId
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.deviceId == request.resource.data.deviceId
+        && getAfter(/databases/$(database)/documents/devices/$(request.resource.data.deviceId)).data.uid == request.auth.uid
+        && !exists(/databases/$(database)/documents/blacklist/$(request.resource.data.deviceId));
+      allow update, delete: if isOwner();
+    }
+
+    match /blacklist/{deviceId} { allow read, write: if isOwner(); }
+    match /audit_log/{entryId} { allow read, write: if isOwner(); }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
