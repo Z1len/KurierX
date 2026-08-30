@@ -263,7 +263,7 @@ class KurierXFeatureStore(context: Context) {
     // GitHub updater is intentionally configurable in Developer Mode because the release
     // repository can be moved without requiring a new APK just to change the URL.
     var githubReleaseApiUrl: String
-        get() = prefs.getString(KEY_GITHUB_RELEASE_API, "") ?: ""
+        get() = prefs.getString(KEY_GITHUB_RELEASE_API, DEFAULT_GITHUB_RELEASE_API) ?: DEFAULT_GITHUB_RELEASE_API
         set(value) = prefs.edit().putString(KEY_GITHUB_RELEASE_API, value.trim()).apply()
 
     // ---------------------------------------------------------------------
@@ -377,6 +377,7 @@ class KurierXFeatureStore(context: Context) {
         private const val KEY_ONTIME_WEEKEND = "rate_ontime_weekend"
         private const val KEY_TUTORIAL_COMPLETED = "tutorial_completed"
         private const val KEY_GITHUB_RELEASE_API = "github_release_api"
+        private const val DEFAULT_GITHUB_RELEASE_API = "https://api.github.com/repos/Z1len/KurierX/releases/latest"
         private const val MAX_REASONABLE_KM = 5_000.0
         private const val MAX_ODOMETER_KM = 9_999_999.0
     }
